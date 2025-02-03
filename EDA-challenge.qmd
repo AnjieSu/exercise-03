@@ -1,0 +1,162 @@
+---
+title: "Exercise-03"
+format: html
+editor: visual
+---
+
+```{r}
+library(dplyr)
+```
+
+### Load Dataset from URL
+```{r}
+d <- read.csv("https://raw.githubusercontent.com/difiore/ada-datasets/main/data-wrangling.csv")
+```
+
+### 1. Create variable: body size dimorphism
+```{r}
+d$BSD <- d$Body_mass_male_mean/d$Body_mass_female_mean
+```
+
+### 2. Create variable: sex ratio
+```{r}
+d$sex_ratio <- d$AdultFemale/d$AdultMales
+```
+
+### 3. Create variable: defensibility index
+```{r}
+d$DI <- d$DayLength_km/(sqrt(d$HomeRange_km2/pi)*2)
+```
+
+### 4. Plot relationship between day range length and time spent moving
+```{r}
+# Plot the distributions of the variables
+hist(d$Move,30)
+hist(d$DayLength_km,30)
+
+# Both skewed, so do a log transformation
+hist(log(d$Move),30)
+hist(log(d$DayLength_km),30)
+# looks better
+
+# Plot all sp
+plot(log(d$Move), log(d$DayLength_km),
+     main = "Overall",
+     xlab = "Time Spent Moving (hr)",
+     ylab = "Day Range Length (km)",
+     cex = 1, pch = 16, col = rgb(0,0,0,0.5))
+
+# Plot each family
+fml <- length(unique(d$Family))
+par(mfrow = c(2, 4))
+for (i in unique(d$Family)) {
+  d_fml <- d[d$Family == i, c(15, 21)]
+  d_fml <- na.omit(d_fml)
+  if (nrow(d_fml) >0) {
+    plot(log(d_fml$Move), log(d_fml$DayLength_km),
+         main = paste0(i),
+         xlab = "Time Spent Moving (hr)",
+         ylab = "Day Range Length (km)",
+         cex = 1, pch = 16, col = rgb(0,0,0,0.5))
+  } else {
+    next
+  }
+}
+```
+Overall, there might be a positive relationship showing that species spending more time moving generally travel farther. On a family level, due to limited points, Cercopithecidae, Atelidae and Lemuridae might have positive relationship between time spent moving and day range length.
+
+### 5. Plot the relationship between day range length and group size
+```{r}
+# Plot the distributions of the variables
+hist(d$MeanGroupSize,30)
+hist(d$DayLength_km,30)
+
+# Both skewed, so do a log transformation
+hist(log(d$MeanGroupSize),30)
+hist(log(d$DayLength_km),30)
+# better
+
+# Plot all sp
+plot(log(d$MeanGroupSize), log(d$DayLength_km),
+     main = "Overall",
+     xlab = "Group size",
+     ylab = "Day Range Length (km)",
+     cex = 1, pch = 16, col = rgb(0,0,0,0.5))
+
+# Plot each family
+fml <- length(unique(d$Family))
+par(mfrow = c(2, 4))
+for (i in unique(d$Family)) {
+  d_fml <- d[d$Family == i, c(8, 15)]
+  d_fml <- na.omit(d_fml)
+  if (nrow(d_fml) >0) {
+    plot(log(d_fml$MeanGroupSize), log(d_fml$DayLength_km),
+         main = paste0(i),
+         xlab = "Group Size",
+         ylab = "Day Range Length (km)",
+         cex = 1, pch = 16, col = rgb(0,0,0,0.5))
+  } else {
+    next
+  }
+}
+```
+Overall, there might be a positive relationship showing that species within larger groups generally travel farther. On a family level, except for Hylobatidae and Daubenonidae, others all show a somewhat positive relationship (despite the limited number of points).
+
+### 6. Plot the relationship between canine size dimorphism and body size dimorphism
+```{r}
+hist(d$Canine_Dimorphism,30)
+hist(d$BSD, 30)
+
+# Transformation needed
+hist(log(d$Canine_Dimorphism), 30)
+hist(log(d$BSD),30)
+
+# Plot all sp
+plot(log(d$BSD), log(d$Canine_Dimorphism),
+     main = "Overall",
+     xlab = "Body Size Dimorphism",
+     ylab = "Canine Size Dimorphism",
+     cex = 1, pch = 16, col = rgb(0,0,0,0.5))
+
+# Plot each family
+fml <- length(unique(d$Family))
+par(mfrow = c(2, 2))
+for (i in unique(d$Family)) {
+  d_fml <- d[d$Family == i, c("Canine_Dimorphism", "BSD")]
+  d_fml <- na.omit(d_fml)
+  if (nrow(d_fml) >0) {
+    plot(log(d_fml$BSD), log(d_fml$Canine_Dimorphism),
+         main = paste0(i),
+         xlab = "Body Size Dimorphism",
+         ylab = "Canine Size Dimorphism",
+         cex = 1, pch = 16, col = rgb(0,0,0,0.5))
+  } else {
+    next
+  }
+}
+```
+Overall, taxa with greater body size dimorphism tend to exhibit greater canine size dimorphism. This relationship is particularly strong in families like Cercopithecidae and Cebidae, with Lorisidae and Hylobatidae showing weaker relationship.
+
+### 7. Add variable: Diet strategy and make plot
+```{r}
+# “frugivore” if fruits make up >50% of the diet, “folivore” if leaves make up >50% of the diet, and “omnivore” if diet data are available, but neither of these is true
+d$diet_strategy <- case_when(d$Fruit > 50 ~ "frugivore", d$Leaves > 50 ~ "folivore", !is.na(d$Fruit) & !is.na(d$Leaves) ~ "omnivore")
+ 
+# Boxplot of group size for species with different dietary strategies
+boxplot(d$MeanGroupSize ~ d$diet_strategy, na.rm = T,
+        main = "Group Size by Diet Strategy",
+        xlab = "Diet Strategy",
+        ylab = "Group Size")
+```
+Frugivores don't live in larger groups than folivores.
+
+### 8. Pipe operator excercise
+```{r}
+d %>% mutate(Binomial = paste0(Genus, Species)) %>%
+  select(Binomial, Family, Brain_Size_Species_Mean, Body_mass_male_mean) %>%
+  group_by(Family) %>%
+  summarize(avg_brain = mean(Brain_Size_Species_Mean, na.rm = T),
+            avg_body = mean(Body_mass_male_mean, na.rm = T)) %>%
+  arrange(avg_brain) %>%
+  print()
+```
